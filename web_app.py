@@ -27,7 +27,7 @@ def home():
     if request.method == "POST":
         query = request.form.get("query")
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'best',
             'outtmpl': 'video_%(id)s.%(ext)s',
             'geo_bypass': True,
             'geo_bypass_country': 'KR',
