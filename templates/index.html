@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>유튜브 다운로더</title>
+  <style>
+    body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+           max-width: 640px; margin: 60px auto; padding: 0 16px; text-align: center; color: #222; }
+    h1 { font-size: 2.2rem; margin-bottom: 28px; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    input[type=text] { flex: 1 1 320px; padding: 12px; font-size: 1rem; border: 1px solid #aaa; border-radius: 6px; }
+    button { padding: 12px 20px; font-size: 1rem; border: 0; border-radius: 6px; background: #d62828; color: #fff; cursor: pointer; }
+    .types { width: 100%; margin-top: 10px; }
+    .error { color: #c00; margin-top: 24px; word-break: break-all; }
+    .wait { display: none; margin-top: 24px; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>유튜브 다운로더</h1>
+  <form method="post" action="/download" onsubmit="document.getElementById('wait').style.display='block'">
+    <input type="text" name="query" placeholder="유튜브 주소 또는 검색어" required>
+    <button type="submit">다운로드 시작</button>
+    <div class="types">
+      <label><input type="radio" name="type" value="video" checked> 영상 (mp4)</label>
+      &nbsp;&nbsp;
+      <label><input type="radio" name="type" value="audio"> 소리만 (mp3)</label>
+    </div>
+  </form>
+  <p id="wait" class="wait">받는 중이에요… 영상 길이에 따라 1~2분 걸릴 수 있어요.</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+</body>
+</html>
