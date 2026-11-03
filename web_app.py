@@ -1,5 +1,5 @@
-import yt_dlp
 from flask import Flask, request, render_template_string
+import yt_dlp
 
 app = Flask(__name__)
 
@@ -8,24 +8,28 @@ html_page = """
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>유튜브 다운로더</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 100px; }
-        input { width: 50%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 12px 24px; font-size: 16px; background-color: #ff0000; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-        button:hover { background-color: #cc0000; }
-        .msg { margin-top: 30px; font-size: 18px; color: #0066cc; font-weight: bold; }
-    </style>
+    <title>유튜브 검색 및 다운로더</title>
 </head>
 <body>
-    <h1>유튜브 영상 다운로더</h1>
-    <form method="POST">
-        <input type="text" name="url" placeholder="여기에 유튜브 영상 주소를 붙여넣으세요" required>
-        <button type="submit">다운로드 시작</button>
-    </form>
-    {% if message %}
-    <div class="msg">{{ message }}</div>
-    {% endif %}
+    <h1 style="text-align: center;">유튜브 검색 및 다운로더</h1>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h3>1. 키워드로 검색해서 다운로드하기</h3>
+        <form method="POST">
+            <input type="text" name="search_query" placeholder="검색어 입력 (예: 잔잔한 팝송)" style="width: 300px;">
+            <button type="submit">검색 및 다운로드</button>
+        </form>
+    </div>
+
+    <div style="text-align: center;">
+        <h3>2. 영상 주소로 직접 다운로드하기</h3>
+        <form method="POST">
+            <input type="text" name="video_url" placeholder="유튜브 주소 입력" style="width: 300px;">
+            <button type="submit">다운로드 시작</button>
+        </form>
+    </div>
+    
+    <p style="text-align: center; color: red;">{{ message }}</p>
 </body>
 </html>
 """
@@ -34,19 +38,31 @@ html_page = """
 def home():
     message = ""
     if request.method == "POST":
-        url = request.form["url"]
+        search_query = request.form.get("search_query")
+        video_url = request.form.get("video_url")
+        
+        # 국가 제한을 우회하기 위한 yt-dlp 설정 추가
         ydl_opts = {
-            'outtmpl': './%(title)s.%(ext)s',
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'best',
+            'geo_bypass': True,
+            'geo_bypass_country': 'KR'
         }
+
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            message = "✅ 영상 다운로드가 완료되었습니다! 바탕화면 폴더를 확인하세요."
+            if search_query:
+                ydl_opts['default_search'] = 'ytsearch1' # 검색 결과 첫 번째 영상 선택
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([search_query])
+                message = f"'{search_query}' 검색 결과 첫 번째 영상 다운로드 완료!"
+                
+            elif video_url:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([video_url])
+                message = "다운로드 성공!"
         except Exception as e:
-            message = f"❌ 다운로드 중 오류가 발생했습니다: {e}"
+            message = f"오류 발생: {str(e)}"
             
     return render_template_string(html_page, message=message)
 
 if __name__ == "__main__":
-    app.run(port=5001)
+    app.run(host='0.0.0.0', port=8000)
