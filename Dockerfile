@@ -15,5 +15,6 @@ RUN pip install --no-cache-dir -U -r requirements.txt
 COPY . .
 
 ENV PORT=5000
+ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 CMD gunicorn -b 0.0.0.0:$PORT --timeout 600 --workers 1 --threads 8 app:app

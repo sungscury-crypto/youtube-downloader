@@ -4,94 +4,225 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>유튜브 다운로더</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
-    body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-           max-width: 640px; margin: 60px auto; padding: 0 16px; text-align: center; color: #222; }
-    h1 { font-size: 2.2rem; margin-bottom: 28px; }
-    form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-    input[type=text] { flex: 1 1 320px; padding: 12px; font-size: 1rem; border: 1px solid #aaa; border-radius: 6px; }
-    button { padding: 12px 20px; font-size: 1rem; border: 0; border-radius: 6px; background: #d62828; color: #fff; cursor: pointer; }
-    button:disabled { background: #aaa; cursor: default; }
-    .types { width: 100%; margin-top: 10px; }
+    :root {
+      --brand: #e4572e;
+      --brand-dark: #c4421d;
+      --ink: #1f2430;
+      --sub: #6b7280;
+      --line: #e5e7eb;
+      --bg: #faf8f5;
+      --card: #ffffff;
+      --tile: #fdf1ec;
+      --tile-on: #fbd9cc;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", sans-serif;
+           background: var(--bg); color: var(--ink); }
 
-    #box { display: none; margin-top: 32px; text-align: left; }
-    .title { font-weight: 600; margin-bottom: 10px; word-break: break-all; }
-    .bar { height: 26px; background: #eee; border-radius: 13px; overflow: hidden; }
-    .fill { height: 100%; width: 0%; background: linear-gradient(90deg, #f77f00, #d62828);
-            transition: width .4s ease; }
-    .fill.processing { background: repeating-linear-gradient(45deg, #f77f00 0 12px, #fcbf49 12px 24px);
-                       animation: move 1s linear infinite; background-size: 34px 34px; }
+    header { max-width: 1100px; margin: 0 auto; padding: 20px 16px; display: flex;
+             align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .logo { font-weight: 900; font-size: 1.6rem; letter-spacing: -1px; color: var(--ink); text-decoration: none; }
+    .logo span { color: var(--brand); }
+    nav a { margin-left: 22px; color: var(--sub); text-decoration: none; font-size: .95rem; }
+    nav a:hover { color: var(--brand); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 56px 16px 80px; text-align: center; }
+    h1 { font-size: 2.4rem; font-weight: 900; margin: 0 0 8px; letter-spacing: -1px; }
+    .lead { color: var(--sub); margin: 0 0 36px; }
+
+    .search { display: flex; border: 6px solid var(--brand); border-radius: 10px; background: var(--brand);
+              max-width: 760px; margin: 0 auto; overflow: hidden; }
+    .search input { flex: 1; min-width: 0; border: 0; padding: 18px 18px; font-size: 1.05rem;
+                    border-radius: 5px; font-family: inherit; outline: none; }
+    .search button { border: 0; background: var(--brand); color: #fff; font-weight: 700; font-size: 1.1rem;
+                     padding: 0 34px; cursor: pointer; font-family: inherit; }
+    .search button:hover { background: var(--brand-dark); }
+    .search button:disabled { opacity: .6; cursor: default; }
+
+    .options { margin: 14px auto 0; max-width: 760px; display: flex; justify-content: space-between;
+               align-items: center; flex-wrap: wrap; gap: 8px; color: var(--sub); font-size: .9rem; }
+    .options select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+                      font-family: inherit; background: #fff; }
+
+    .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin: 40px auto 0; max-width: 900px; }
+    .tile { background: var(--tile); border: 2px solid transparent; border-radius: 10px; padding: 18px 10px;
+            cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px;
+            font-weight: 500; transition: .15s; font-family: inherit; font-size: 1rem; color: var(--ink); }
+    .tile:hover { transform: translateY(-2px); }
+    .tile.on { background: var(--tile-on); border-color: var(--brand); }
+    .icon { width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center;
+            color: #fff; font-weight: 900; font-size: .85rem; }
+    .tile small { color: var(--sub); font-weight: 400; font-size: .8rem; }
+
+    #result { display: none; margin: 40px auto 0; max-width: 760px; background: var(--card);
+              border: 1px solid var(--line); border-radius: 12px; padding: 22px; text-align: left; }
+    .info { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+    .info img { width: 160px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; background: #eee; }
+    .info img[src=""] { display: none; }
+    .info .t { font-weight: 700; font-size: 1.05rem; line-height: 1.4; word-break: break-all; }
+    .info .m { color: var(--sub); font-size: .9rem; margin-top: 6px; }
+
+    .bar { height: 24px; background: #f0ece8; border-radius: 12px; overflow: hidden; }
+    .fill { height: 100%; width: 0%; background: var(--brand); transition: width .4s ease; }
+    .fill.busy { background: repeating-linear-gradient(45deg, var(--brand) 0 12px, #f2a07f 12px 24px);
+                 background-size: 34px 34px; animation: move 1s linear infinite; width: 100% !important; }
     @keyframes move { from { background-position: 0 0 } to { background-position: 34px 0 } }
-    .row { display: flex; justify-content: space-between; margin-top: 8px; font-size: .95rem; color: #555; }
-    .percent { font-size: 1.6rem; font-weight: 700; color: #d62828; }
+    .row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; }
+    .pct { font-size: 1.8rem; font-weight: 900; color: var(--brand); }
+    .stage { color: var(--sub); }
 
-    table { width: 100%; margin-top: 16px; border-collapse: collapse; font-size: .95rem; }
-    td { border-bottom: 1px solid #eee; padding: 8px 4px; }
-    td:first-child { color: #888; width: 90px; }
+    table { width: 100%; margin-top: 14px; border-collapse: collapse; font-size: .95rem; }
+    td { border-bottom: 1px solid var(--line); padding: 9px 4px; }
+    td:first-child { color: var(--sub); width: 100px; }
 
-    .error { color: #c00; margin-top: 24px; word-break: break-all; }
-    .done a { display: inline-block; margin-top: 16px; padding: 12px 20px; background: #2a9d8f;
-              color: #fff; border-radius: 6px; text-decoration: none; }
+    .save { display: inline-block; margin-top: 18px; padding: 12px 22px; background: #2a9d8f; color: #fff;
+            border-radius: 8px; text-decoration: none; font-weight: 700; }
+    .error { color: #c62828; margin-top: 24px; word-break: break-all; }
+
+    .how { max-width: 760px; margin: 60px auto 0; text-align: left; }
+    .how h2 { font-size: 1.2rem; }
+    .how ol { color: var(--sub); line-height: 1.9; padding-left: 20px; }
+    footer { text-align: center; color: var(--sub); font-size: .85rem; padding: 24px 16px 40px;
+             border-top: 1px solid var(--line); }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      h1 { font-size: 1.8rem; }
+      .tiles { grid-template-columns: repeat(2, 1fr); }
+      .search button { padding: 0 18px; }
+      .info { flex-direction: column; align-items: flex-start; }
+      .info img { width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <h1>유튜브 다운로더</h1>
+  <header>
+    <a class="logo" href="/">▶ Tube<span>Save</span></a>
+    <nav>
+      <a href="#" data-mode="mp4">영상</a>
+      <a href="#" data-mode="mp3">MP3</a>
+      <a href="#" data-mode="txt">대본</a>
+      <a href="#how">사용 방법</a>
+    </nav>
+  </header>
 
-  <form id="form">
-    <input type="text" id="query" placeholder="유튜브 주소 또는 검색어" required>
-    <button type="submit" id="btn">다운로드 시작</button>
-    <div class="types">
-      <label><input type="radio" name="type" value="video" checked> 영상 (mp4)</label>
-      &nbsp;&nbsp;
-      <label><input type="radio" name="type" value="audio"> 소리만 (mp3)</label>
+  <main>
+    <h1 id="headline">유튜브 영상 다운로드</h1>
+    <p class="lead">주소를 붙여 넣거나 검색어를 입력하세요</p>
+
+    <form id="form" class="search">
+      <input type="text" id="query" placeholder="여기에 유튜브 링크 붙여넣기" required>
+      <button type="submit" id="btn">다운로드</button>
+    </form>
+
+    <div class="options">
+      <span id="hint">본인 영상이나 허락받은 영상만 받아 주세요.</span>
+      <label id="qwrap">화질
+        <select id="quality">
+          <option value="1080">1080p (고화질)</option>
+          <option value="720">720p</option>
+          <option value="480">480p</option>
+          <option value="360">360p (빠름)</option>
+        </select>
+      </label>
     </div>
-  </form>
 
-  <div id="box">
-    <div class="title" id="title"></div>
-    <div class="bar"><div class="fill" id="fill"></div></div>
-    <div class="row">
-      <span class="percent" id="percent">0%</span>
-      <span id="stage">준비 중</span>
+    <div class="tiles" id="tiles">
+      <button type="button" class="tile on" data-mode="mp4">
+        <span class="icon" style="background:#e4572e">MP4</span>영상<small>화면+소리</small></button>
+      <button type="button" class="tile" data-mode="shorts">
+        <span class="icon" style="background:#d1495b">⚡</span>쇼츠<small>짧은 영상</small></button>
+      <button type="button" class="tile" data-mode="mp3">
+        <span class="icon" style="background:#edae49">MP3</span>소리만<small>설교 음성</small></button>
+      <button type="button" class="tile" data-mode="srt">
+        <span class="icon" style="background:#00798c">CC</span>자막<small>SRT 파일</small></button>
+      <button type="button" class="tile" data-mode="txt">
+        <span class="icon" style="background:#30638e">TXT</span>대본<small>글자만</small></button>
     </div>
-    <table>
-      <tr><td>상태</td><td id="t-stage">준비 중</td></tr>
-      <tr><td>진행률</td><td id="t-percent">0%</td></tr>
-      <tr><td>속도</td><td id="t-speed">-</td></tr>
-      <tr><td>남은 시간</td><td id="t-eta">-</td></tr>
-    </table>
-    <div class="done" id="done"></div>
-  </div>
 
-  <p class="error" id="error"></p>
+    <div id="result">
+      <div class="info">
+        <img id="thumb" src="" alt="">
+        <div>
+          <div class="t" id="title">영상 정보를 불러오는 중…</div>
+          <div class="m" id="meta"></div>
+        </div>
+      </div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="row">
+        <span class="pct" id="pct">0%</span>
+        <span class="stage" id="stage">준비 중</span>
+      </div>
+      <table>
+        <tr><td>상태</td><td id="t-stage">준비 중</td></tr>
+        <tr><td>진행률</td><td id="t-pct">0%</td></tr>
+        <tr><td>속도</td><td id="t-speed">-</td></tr>
+        <tr><td>남은 시간</td><td id="t-eta">-</td></tr>
+      </table>
+      <div id="done"></div>
+    </div>
+
+    <p class="error" id="error"></p>
+
+    <section class="how" id="how">
+      <h2>사용 방법</h2>
+      <ol>
+        <li>유튜브에서 영상 주소를 복사해요. (쇼츠 주소도 돼요)</li>
+        <li>위 칸에 붙여 넣고, 아래에서 영상·쇼츠·소리·자막·대본 중 하나를 골라요.</li>
+        <li><b>다운로드</b>를 누르면 진행률이 보이고, 다 되면 자동으로 저장돼요.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>팀 프로젝트 · 개인 학습용 · 저작권이 있는 영상은 허락받은 경우에만 사용하세요.</footer>
 
 <script>
 const $ = id => document.getElementById(id);
-let timer = null;
+const LABELS = {
+  mp4: ["유튜브 영상 다운로드", "다운로드"],
+  shorts: ["유튜브 쇼츠 다운로드", "쇼츠 받기"],
+  mp3: ["유튜브 MP3 다운로드", "MP3 받기"],
+  srt: ["유튜브 자막 다운로드", "자막 받기"],
+  txt: ["유튜브 대본 추출", "대본 받기"],
+};
+let mode = "mp4", timer = null;
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll(".tile").forEach(t => t.classList.toggle("on", t.dataset.mode === m));
+  $("headline").textContent = LABELS[m][0];
+  $("btn").textContent = LABELS[m][1];
+  $("qwrap").style.visibility = (m === "mp4" || m === "shorts") ? "visible" : "hidden";
+  $("query").focus();
+}
+document.querySelectorAll("[data-mode]").forEach(el =>
+  el.addEventListener("click", e => { e.preventDefault(); setMode(el.dataset.mode); }));
 
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
   clearInterval(timer);
   $("error").textContent = "";
   $("done").innerHTML = "";
-  $("title").textContent = "";
-  $("box").style.display = "block";
+  $("thumb").src = "";
+  $("title").textContent = "영상 정보를 불러오는 중…";
+  $("meta").textContent = "";
+  $("result").style.display = "block";
   setProgress({ percent: 0, stage: "준비 중", status: "starting" });
   $("btn").disabled = true;
 
-  const type = document.querySelector("input[name=type]:checked").value;
   try {
     const res = await fetch("/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: $("query").value, type })
+      body: JSON.stringify({ query: $("query").value, mode, quality: $("quality").value })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "시작하지 못했어요.");
     timer = setInterval(() => check(data.job_id), 1000);
-  } catch (err) {
-    showError(err.message);
-  }
+  } catch (err) { showError(err.message); }
 });
 
 async function check(jobId) {
@@ -103,29 +234,32 @@ async function check(jobId) {
     if (p.status === "done") {
       clearInterval(timer);
       $("btn").disabled = false;
-      $("done").innerHTML = `<a href="/file/${jobId}">💾 ${p.file_name} 저장하기</a>`;
-      window.location.href = "/file/" + jobId;   // 자동으로 저장 시작
+      $("done").innerHTML = `<a class="save" href="/file/${jobId}">💾 저장하기</a>`;
+      window.location.href = "/file/" + jobId;
     }
   } catch (err) { /* 잠깐 끊겨도 다음 확인 때 다시 시도 */ }
 }
 
 function setProgress(p) {
-  const pct = (p.percent || 0).toFixed(1) + "%";
-  $("fill").style.width = (p.percent || 0) + "%";
-  $("fill").classList.toggle("processing", p.status === "processing");
-  $("percent").textContent = pct;
+  const v = p.percent || 0, pct = v.toFixed(1) + "%";
+  $("fill").style.width = v + "%";
+  $("fill").classList.toggle("busy", p.status === "processing");
+  $("pct").textContent = pct;
   $("stage").textContent = p.stage || "";
   $("t-stage").textContent = p.stage || "-";
-  $("t-percent").textContent = pct;
+  $("t-pct").textContent = pct;
   $("t-speed").textContent = p.speed || "-";
   $("t-eta").textContent = p.eta || "-";
-  if (p.title) $("title").textContent = "🎬 " + p.title;
+  if (p.title) $("title").textContent = p.title;
+  if (p.thumbnail && $("thumb").getAttribute("src") !== p.thumbnail) $("thumb").src = p.thumbnail;
+  const meta = [p.channel, p.duration && "길이 " + p.duration].filter(Boolean).join(" · ");
+  if (meta) $("meta").textContent = meta;
 }
 
 function showError(msg) {
   clearInterval(timer);
   $("btn").disabled = false;
-  $("box").style.display = "none";
+  $("result").style.display = "none";
   $("error").textContent = msg;
 }
 </script>
