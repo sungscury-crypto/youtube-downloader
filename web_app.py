@@ -27,7 +27,7 @@ def home():
     if request.method == "POST":
         query = request.form.get("query")
         ydl_opts = {
-            'format': 'best',
+            'format': '22/18/b',
             'outtmpl': 'video_%(id)s.%(ext)s',
             'geo_bypass': True,
             'geo_bypass_country': 'KR',
