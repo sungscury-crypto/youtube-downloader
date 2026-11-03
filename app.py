@@ -53,6 +53,9 @@ def build_options(job_id, out_dir, audio_only):
         "outtmpl": os.path.join(out_dir, "%(title).80s.%(ext)s"),
         "noplaylist": True,
         "quiet": True,
+        "retries": 10,
+        "fragment_retries": 10,
+        "http_chunk_size": 10 * 1024 * 1024,  # 10MB씩 나눠 받기 (빈 파일·속도 제한 줄임)
         "progress_hooks": [progress_hook],
         "postprocessor_hooks": [postprocessor_hook],
     }
@@ -76,28 +79,68 @@ def friendly_error(msg):
         return "유튜브가 이 서버를 로봇으로 판단해 막았어요. cookies.txt를 넣어 보세요."
     if "Requested format is not available" in msg:
         return "받을 수 있는 형식이 없어요. 다시 배포해서 yt-dlp를 최신으로 바꿔 보세요."
+    if "empty" in msg or "403" in msg:
+        return "유튜브가 이 서버의 다운로드를 막고 있어요. cookies.txt를 넣거나 내 컴퓨터에서 실행해 보세요."
     return "다운로드 중 문제가 생겼어요."
+
+
+# 차례로 시도할 방법들 (앞의 방법이 막히면 다음 방법으로)
+ATTEMPTS = [
+    {"name": "기본 방법", "clients": None, "format": None},
+    {"name": "TV 방식", "clients": ["tv", "web_safari"], "format": None},
+    {"name": "모바일 방식", "clients": ["android_vr", "ios"], "format": None},
+    {"name": "저화질 한 파일(360p)", "clients": None, "format": "18/b"},
+]
 
 
 def run_job(job_id, target, audio_only):
     out_dir = tempfile.mkdtemp()
     update(job_id, out_dir=out_dir)
-    try:
-        with yt_dlp.YoutubeDL(build_options(job_id, out_dir, audio_only)) as ydl:
-            info = ydl.extract_info(target, download=True)
-            if info and "entries" in info:  # 검색어로 받은 경우
-                info = info["entries"][0]
-            update(job_id, title=(info or {}).get("title", ""))
+    last_error = ""
+    for i, attempt in enumerate(ATTEMPTS, start=1):
+        # 이전 시도에서 남은 조각 파일 지우기
+        for f in os.listdir(out_dir):
+            try:
+                os.remove(os.path.join(out_dir, f))
+            except OSError:
+                pass
+        if i > 1:
+            update(job_id, status="starting", percent=0, speed="", eta="",
+                   stage=f"다른 방법으로 다시 시도 중 ({i}/{len(ATTEMPTS)}: {attempt['name']})")
+        else:
+            update(job_id, stage="영상 정보 확인 중… (30초~1분)")
 
-        files = [f for f in os.listdir(out_dir) if not f.endswith((".part", ".ytdl"))]
-        if not files:
-            raise RuntimeError("파일이 만들어지지 않았어요.")
-        update(job_id, status="done", stage="완료!", percent=100,
-               file_path=os.path.join(out_dir, files[0]), file_name=files[0])
-    except Exception as e:
-        msg = str(e)
-        update(job_id, status="error", error=f"{friendly_error(msg)} (자세히: {msg})")
-        shutil.rmtree(out_dir, ignore_errors=True)
+        opts = build_options(job_id, out_dir, audio_only)
+        if attempt["clients"]:
+            opts["extractor_args"] = {"youtube": {"player_client": attempt["clients"]}}
+        if attempt["format"] and not audio_only:
+            opts["format"] = attempt["format"]
+            opts.pop("merge_output_format", None)
+
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(target, download=True)
+                if info and "entries" in info:  # 검색어로 받은 경우
+                    info = info["entries"][0]
+                update(job_id, title=(info or {}).get("title", ""))
+
+            files = [f for f in os.listdir(out_dir)
+                     if not f.endswith((".part", ".ytdl"))
+                     and os.path.getsize(os.path.join(out_dir, f)) > 0]
+            if not files:
+                raise RuntimeError("The downloaded file is empty")
+            update(job_id, status="done", stage="완료!", percent=100,
+                   file_path=os.path.join(out_dir, files[0]), file_name=files[0])
+            return
+        except Exception as e:
+            last_error = str(e)
+            print(f"[{job_id}] 시도 {i} ({attempt['name']}) 실패: {last_error}", flush=True)
+            # 주소가 틀렸거나 비공개 영상이면 다른 방법도 소용없음
+            if any(k in last_error for k in ("Private video", "Video unavailable", "is not a valid URL")):
+                break
+
+    update(job_id, status="error", error=f"{friendly_error(last_error)} (자세히: {last_error})")
+    shutil.rmtree(out_dir, ignore_errors=True)
 
 
 def cleanup_old_jobs():
